@@ -8,7 +8,7 @@ version = "0.0.2"
 description = "An Opionated MCP Server suitable for securely writing software."
 requires-python = ">=3.12"
 dependencies = [
-    "ai-contained-core-mcp @ https://github.com/AI-Contained/core-mcp/archive/refs/tags/v0.0.2.zip",
+    "ai-contained-core-mcp @ https://github.com/AI-Contained/core-mcp/archive/refs/tags/v0.0.3.zip",
     "ai-contained-provider-filesystem @ https://github.com/AI-Contained/ai-contained-provider-filesystem/archive/reference.zip",
     "ai-contained-provider-shell @ https://github.com/AI-Contained/ai-contained-provider-shell/archive/reference.zip",
 ]

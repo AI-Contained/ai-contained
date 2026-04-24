@@ -4,6 +4,18 @@ Run Claude as a coding assistant with real guardrails — isolated in Docker, wi
 
 ---
 
+## ⚠️ Current State: Proof of Concept
+
+**Please read this before using AI-Contained.**
+
+The Docker architecture underpinning this project is rock solid. However, the MCP tools — the code that handles reading files, writing files, and executing shell commands — are a **reference implementation**: heavily AI-generated, with an AI-generated test suite. In other words, treat them as a starting point, not production-hardened software. These tools will be rewritten collaboratively by humans and AI over time. In the meantime, the code is provided as-is. Use it, learn from it, but do so with your eyes open.
+
+Additionally, there is **no authentication and no SSL** between the AI agent and the tool server. The containers communicate over a plain HTTP connection on the isolated Docker network. This is fine when everything runs on a single local machine, but **do not expose these services on an untrusted or shared network**. AI-Contained is intended to be run locally, or on a network you control and trust.
+
+**You've been warned. Proceed accordingly.**
+
+---
+
 ## The Problem
 
 AI coding assistants are powerful, but most of them run with broad access to your machine: your files, your shell, your credentials. You're trusting not just the AI's judgment, but the judgment of every tool it touches — and your own judgment, every single time it asks for permission.
