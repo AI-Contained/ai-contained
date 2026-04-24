@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ai-contained-template"
+name = "ai-contained"
 version = "0.0.2"
-description = "Example MCP server using the helloworld plugin"
+description = "An Opionated MCP Server suitable for writing Code Security."
 requires-python = ">=3.12"
 dependencies = [
     "ai-contained-core-mcp @ https://github.com/AI-Contained/core-mcp/archive/refs/tags/v0.0.2.zip",
-    "ai-contained-provider-template @ https://github.com/AI-Contained/ai-contained-provider-template/archive/refs/tags/v0.0.2.zip",
+    "ai-contained-provider-filesystem @ https://github.com/AI-Contained/ai-contained-provider-filesystem/archive/reference.zip",
 ]
 
 [tool.hatch.metadata]
