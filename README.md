@@ -1,86 +1,185 @@
-# ai-contained-template
+# AI-Contained
 
-An example [AI-Contained](https://github.com/AI-Contained) MCP server demonstrating the plugin architecture with the `ai-contained-provider-template` adventure game plugin.
-
-## Plugins
-
-- **[ai-contained-provider-template](https://github.com/AI-Contained/ai-contained-provider-template)** - A choose-your-own-adventure game using MCP elicitation
+Run Claude as a coding assistant with real guardrails — isolated in Docker, with explicit control over what it can see and do.
 
 ---
 
-## Using with AI-Contained (End Users)
+## ⚠️ Current State: Proof of Concept
 
-The easiest way to run this MCP server alongside an AI agent.
+**Please read this before using AI-Contained.**
 
-### Prerequisites
+The Docker architecture underpinning this project is rock solid. However, the MCP tools — the code that handles reading files, writing files, and executing shell commands — are a **reference implementation**: heavily AI-generated, with an AI-generated test suite. In other words, treat them as a starting point, not production-hardened software. These tools will be rewritten collaboratively by humans and AI over time. In the meantime, the code is provided as-is. Use it, learn from it, but do so with your eyes open.
 
-- Docker with Compose
-- [ai-contained-agent-claude](https://github.com/AI-Contained/ai-contained-agent-claude) checked out at `../ai-contained-agent-claude`
+Additionally, there is **no authentication and no SSL** between the AI agent and the tool server. The containers communicate over a plain HTTP connection on the isolated Docker network. This is fine when everything runs on a single local machine, but **do not expose these services on an untrusted or shared network**. AI-Contained is intended to be run locally, or on a network you control and trust.
 
-### Bootstrap (first time only)
+**You've been warned. Proceed accordingly.**
 
-Follow the [ai-contained-agent-claude bootstrap instructions](https://github.com/AI-Contained/ai-contained-agent-claude#first-time-setup-bootstrap), then:
+---
 
-```bash
-cp -r ../ai-contained-agent-claude/template-config ~/.config/ai-contained/ai-contained-agent-claude
+## The Problem
+
+AI coding assistants are powerful, but most of them run with broad access to your machine: your files, your shell, your credentials. You're trusting not just the AI's judgment, but the judgment of every tool it touches — and your own judgment, every single time it asks for permission.
+
+That last part matters more than it sounds. After approving fifty reasonable requests in a row, it's easy to approve a fifty-first without reading it carefully. This is called **prompt fatigue**, and it's one of the most realistic ways an AI assistant causes unintended damage.
+
+AI-Contained takes a different approach.
+
+---
+
+## The Solution: Two Independent Layers of Protection
+
+### Layer 1 — You approve every action
+
+The AI cannot read a file, write code, or run a shell command without explicitly asking you first. Every request shows you exactly what it wants to do and why. You say yes or no.
+
+This is your primary line of defense for normal operation.
+
+### Layer 2 — Docker enforces the limits, regardless
+
+Here's the part that makes AI-Contained different from other tools that also ask for approval:
+
+Each tool the AI can use runs in its **own Docker container**, with permissions set at the infrastructure level — not in software. This means that even if you accidentally approve something you shouldn't have (prompt fatigue), even if a tool is misconfigured, even if the AI finds a creative way to phrase a request — the container simply **cannot** exceed what it was given at launch.
+
+A concrete example: the **shell tool** is given a **read-only** mount of your workspace. So even if the AI convinces a tired you to approve `rm -rf /`, the container physically cannot write to anything. There is no code path that overrides this — it's enforced by the kernel.
+
+Meanwhile, all legitimate file writes go through the **filesystem tool**, which runs in a separate container with read-write access and its own approval flow. This means every write operation is funneled through a tool that was specifically designed with guardrails for that purpose.
+
+The result: **you get the convenience of a capable AI assistant, with the blast radius of a carefully sandboxed process.**
+
+---
+
+## Why Open Source Matters Here
+
+Every tool the AI can use is open-source Python. Before you grant the AI access to your codebase, you can read exactly what each tool does — not a summary, the actual code.
+
+This is a deliberate design choice. Trust shouldn't be blind. If you're handing an AI access to sensitive code or infrastructure, you should be able to verify what it can actually do with that access.
+
+---
+
+## What's Included
+
+AI-Contained ships with two tools, pre-configured with appropriate isolation:
+
+| Tool | What it does | Docker permissions |
+|------|-------------|-------------------|
+| **Filesystem** | Read files, write files, glob/search directories | Read + write to your workspace |
+| **Shell** | Run bash commands | Read-only access to your workspace |
+
+The separation is intentional. The shell tool can inspect, search, and run commands against your code — but it cannot modify anything. If the AI wants to write a file, it must use the filesystem tool, which has its own approval step and its own container.
+
+This architecture means that even a compromised or poorly configured shell tool has a hard ceiling on the damage it can cause.
+
+---
+
+## How It Works Under the Hood
+
+When you run `ai-contained.sh`, Docker Compose starts several containers on a private, isolated network:
+
+- **The AI agent** — a minimal Claude Code container with no built-in tools enabled. It has no direct access to your host machine. The only way it can interact with the outside world is by calling tools through the network.
+- **The tool server** — a Python server that receives the AI's tool requests and executes them within their respective containers, subject to their configured permissions.
+
+Your workspace directory is mounted into the containers that need it, with the permissions each one is allowed. The AI agent itself never touches your filesystem directly — it goes through the tool server, which goes through the appropriate container.
+
+```
+Your machine
+└── docker network (isolated)
+    ├── agent (Claude Code — no host access)
+    ├── tool server (routes requests to tools)
+    ├── filesystem container (read+write to /workspace)
+    └── shell container (read-only to /workspace)
 ```
 
-### Setup
+The AI agent is also stripped of all of Claude Code's built-in tools (file reading, web search, etc.). It can **only** act through the tools you've explicitly provided. There is no fallback, no bypass.
 
-Add `ai-contained-template/bin` to your PATH:
+---
+
+## Prerequisites
+
+- **Docker** with the Compose plugin — verify with `docker compose version`
+- **A Claude account** — either:
+  - A [Claude Pro or Max subscription](https://claude.ai) — running Claude Code locally is safe and does not violate Anthropic's Terms of Service
+  - Or an [Anthropic API key](https://console.anthropic.com)
+
+---
+
+## Setup (First Time Only)
+
+**1. Clone this repo and the agent side by side:**
 
 ```bash
-export PATH="$PATH:/path/to/ai-contained-template/bin"
+git clone https://github.com/AI-Contained/ai-contained.git
+git clone https://github.com/AI-Contained/ai-contained-agent-claude.git
 ```
 
-### Running
+Both directories should be in the same parent folder.
 
-From any directory you want the agent to work in:
+**2. Bootstrap your Claude config:**
+
+```bash
+cp -r ai-contained-agent-claude/template-config ~/.config/ai-contained/ai-contained-agent-claude
+```
+
+This creates a config directory where Claude stores your login session and settings. You only do this once — after that, your session persists across runs.
+
+**3. Add `ai-contained` to your PATH:**
+
+```bash
+export PATH="$PATH:/path/to/ai-contained/bin"
+```
+
+Add this line to your `~/.bashrc` or `~/.zshrc` to make it permanent.
+
+---
+
+## Running
+
+From any directory you want the AI to work in:
 
 ```bash
 ai-contained.sh .
 ```
 
-Resume a previous session:
+Or point it at a specific path:
+
+```bash
+ai-contained.sh ~/projects/my-app
+```
+
+The first run builds the Docker images — this takes a minute or two. Every subsequent run starts in a few seconds.
+
+**Resume a previous session:**
 
 ```bash
 ai-contained.sh . --resume <session-id>
 ```
 
-This starts `ai-contained-template` and the AI agent in an isolated Docker network, with your current directory mounted as `/workspace` inside the MCP server.
+When you're done, press `Ctrl+C`. Docker Compose shuts everything down cleanly.
 
 ---
 
-## Developing Your Own MCP (Developers)
+## First Launch
 
-Use this repo as a template for building your own MCP server with custom plugins.
+On first launch, Claude will walk you through login. Sign in with your Claude.ai account (Pro or Max) or enter your API key when prompted. Your credentials are stored in `~/.config/ai-contained/ai-contained-agent-claude/` and reused automatically in future sessions.
 
-### Local Development Setup
+---
 
-```bash
-pip install -r requirements-dev.txt -e . --no-deps
-```
+## What the AI Can and Can't Do
 
-> Assumes the following layout:
-> ```
-> ../core-mcp/
-> ../ai-contained-provider-template/
-> ../ai-contained-template/   ← you are here
-> ```
+**The AI can:**
+- Read any file inside the directory you shared
+- Write and edit files inside that directory — with your approval, through the filesystem tool
+- Run bash commands against your code — with your approval, in a read-only shell
+- Ask you questions, explain its reasoning, make suggestions
 
-### Running the Server Directly
+**The AI cannot:**
+- Access anything outside the directory you shared
+- Read your environment variables, SSH keys, or credentials
+- Make outbound network requests on its own
+- Install software or modify system configuration
+- Do anything — at all — without explicitly asking you first
 
-```bash
-python3 server.py
-```
+---
 
-Or via FastMCP CLI:
+## Want to Customize or Build Your Own?
 
-```bash
-fastmcp run server.py --transport http --host 0.0.0.0 --port 8080 --no-banner
-```
-
-### Customizing
-
-- Add/remove plugins in `pyproject.toml`
-- Update MCP server URL in `docker-compose.yaml` if you rename the service
+AI-Contained is built on a modular provider architecture. If you're a developer who wants to add new tools, adjust permissions, build your own tool server, or understand how the pieces fit together, see the [AI-Contained GitHub organization](https://github.com/AI-Contained) for the template repos and developer documentation.
