@@ -4,11 +4,15 @@ Run Claude as a coding assistant with real guardrails — isolated in Docker, wi
 
 ---
 
-## ⚠️ Current State: Proof of Concept
+## ⚠️ Current State: Minimum Viable Product
 
 **Please read this before using AI-Contained.**
 
+AI-Contained is now an MVP — usable for everyday work, but **expect bugs** _potentially code corrupting_. **We're collecting feedback and your experience** from early users and iterating quickly; if you hit something rough or have suggestions, please open an issue or share what you've learned.
+
 The Docker architecture underpinning this project is rock solid. However, the MCP tools — the code that handles reading files, writing files, and executing shell commands — are a **reference implementation**: heavily AI-generated, with an AI-generated test suite. In other words, treat them as a starting point, not production-hardened software. These tools will be rewritten collaboratively by humans and AI over time. In the meantime, the code is provided as-is. Use it, learn from it, but do so with your eyes open.
+
+**Approval granularity is per-request.** Every individual tool request currently requires explicit approval or rejection — at the moment, there is no way yet to grant standing permission for, say, "all reads under this directory" or "any `npm test`". Approval-list / ACL support is on the roadmap ([issue #7](https://github.com/AI-Contained/ai-contained/issues/7)). For now, expect to click a lot.
 
 Additionally, there is **no authentication and no SSL** between the AI agent and the tool server. The containers communicate over a plain HTTP connection on the isolated Docker network. This is fine when everything runs on a single local machine, but **do not expose these services on an untrusted or shared network**. AI-Contained is intended to be run locally, or on a network you control and trust.
 
@@ -104,24 +108,15 @@ The AI agent is also stripped of all of Claude Code's built-in tools (file readi
 
 ## Setup (First Time Only)
 
-**1. Clone this repo and the agent side by side:**
+**1. Clone this repo:**
 
 ```bash
 git clone https://github.com/AI-Contained/ai-contained.git
-git clone https://github.com/AI-Contained/ai-contained-agent-claude.git
 ```
 
-Both directories should be in the same parent folder.
+The agent image is pulled automatically from `ghcr.io/ai-contained/ai-contained-agent-claude:latest`.  During the first run, it bootstraps its own config directory (`~/.config/ai-contained/agent-claude`) then proceeds to start claude-code.
 
-**2. Bootstrap your Claude config:**
-
-```bash
-cp -r ai-contained-agent-claude/template-config ~/.config/ai-contained/ai-contained-agent-claude
-```
-
-This creates a config directory where Claude stores your login session and settings. You only do this once — after that, your session persists across runs.
-
-**3. Add `ai-contained` to your PATH:**
+**2. Add `ai-contained` to your PATH:**
 
 ```bash
 export PATH="$PATH:/path/to/ai-contained/bin"
@@ -145,7 +140,7 @@ Or point it at a specific path:
 ai-contained.sh ~/projects/my-app
 ```
 
-The first run builds the Docker images — this takes a minute or two. Every subsequent run starts in a few seconds.
+The first run builds the tool-server image and pulls the agent image — this takes a minute or two. Every subsequent run starts in a few seconds.
 
 **Resume a previous session:**
 
@@ -153,7 +148,7 @@ The first run builds the Docker images — this takes a minute or two. Every sub
 ai-contained.sh . --resume <session-id>
 ```
 
-When you're done, press `Ctrl+C`. Docker Compose shuts everything down cleanly.
+When you're done, simply quit claude. Docker Compose shuts everything down cleanly.
 
 ---
 
