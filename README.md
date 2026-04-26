@@ -15,15 +15,8 @@ The easiest way to run this MCP server alongside an AI agent.
 ### Prerequisites
 
 - Docker with Compose
-- [ai-contained-agent-claude](https://github.com/AI-Contained/ai-contained-agent-claude) checked out at `../ai-contained-agent-claude`
 
-### Bootstrap (first time only)
-
-Follow the [ai-contained-agent-claude bootstrap instructions](https://github.com/AI-Contained/ai-contained-agent-claude#first-time-setup-bootstrap), then:
-
-```bash
-cp -r ../ai-contained-agent-claude/template-config ~/.config/ai-contained/ai-contained-agent-claude
-```
+The agent image (`ghcr.io/ai-contained/ai-contained-agent-claude:latest`) is pulled automatically — no separate checkout or manual bootstrap is needed. On first run, the agent's built-in `shim_claude` entrypoint populates `~/.config/ai-contained/agent-claude` from its bundled template.
 
 ### Setup
 

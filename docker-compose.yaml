@@ -9,8 +9,8 @@ services:
       - ai-contained
 
   agent:
-    build:
-      context: ../ai-contained-agent-claude
+    image: ghcr.io/ai-contained/ai-contained-agent-claude:latest
+    pull_policy: always
     user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
     cap_drop:
       - ALL
@@ -25,9 +25,10 @@ services:
       ai-contained:
         condition: service_healthy
     # entrypoint is used instead of command so that additional args (e.g. --resume)
-    # passed via `docker compose run` are appended rather than replacing the MCP config
+    # passed via `docker compose run` are appended rather than replacing the MCP config.
+    # shim_claude bootstraps /config (idempotent) and then exec's claude.
     entrypoint:
-      - "/home/agent/.local/bin/claude"
+      - "/usr/local/bin/shim_claude"
       - "--strict-mcp-config"
       - "--mcp-config"
       - '{"mcpServers":{"ai-contained":{"type":"http","url":"http://ai-contained:8080/mcp"}}}'
