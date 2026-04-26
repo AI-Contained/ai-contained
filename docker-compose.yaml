@@ -7,6 +7,8 @@ services:
       ALLOWED_PROVIDERS: "shell"
     volumes:
       - "${WORKSPACE:?WORKSPACE not set - run via ai-contained.sh}:/ai_contained:ro"
+    tmpfs:
+      - /tmp:size=512m,mode=1777
     networks:
       - ai-contained
 
