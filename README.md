@@ -22,6 +22,8 @@ Additionally, there is **no authentication and no SSL** between the AI agent and
 
 ## Quick Start
 
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and the [Docker Compose plugin](https://docs.docker.com/compose/install/) must be installed. Verify with `docker compose version`.
+
 ```bash
 git clone https://github.com/AI-Contained/ai-contained.git
 export PATH="$PATH:$(pwd)/ai-contained/bin"   # add to ~/.bashrc or ~/.zshrc to persist
