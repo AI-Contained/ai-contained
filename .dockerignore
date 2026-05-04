@@ -1,3 +1,4 @@
 *
+!bin/*
 !server.py
 !pyproject.toml

@@ -1,18 +1,23 @@
 ARG BASE_IMAGE=python:3.12-alpine
+ARG PROVIDER_SHELL=ghcr.io/ai-contained/ai-contained-provider-shell:latest
+
+FROM ${PROVIDER_SHELL} AS provider-shell
+
 FROM ${BASE_IMAGE}
 
 ENV APP_DIR=/app
+
+COPY --link --from=provider-shell / /
+
 COPY . ${APP_DIR}
 
-RUN pip install --no-cache-dir ${APP_DIR}
+RUN pip install --no-cache-dir ${APP_DIR} && \
+    sh ${APP_DIR}/bin/startup.sh
 
 ENV ADDRESS=0.0.0.0
 ENV PORT=8080
 
-
 USER 65533:65533
-# This should match the same WORKDIR as in the ai-contained-agent-*
-#  otherwise AI get's confused
 VOLUME /ai_contained
 WORKDIR /ai_contained
 
