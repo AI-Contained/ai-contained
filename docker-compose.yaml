@@ -2,6 +2,7 @@ services:
   ai-contained:
     build:
       context: .
+      pull: true
     user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
     volumes:
       - "${WORKSPACE:?WORKSPACE not set - run via ai-contained.sh}:/ai_contained"
