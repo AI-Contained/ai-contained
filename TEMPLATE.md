@@ -48,32 +48,28 @@ This starts `ai-contained-template` and the AI agent in an isolated Docker netwo
 
 Use this repo as a template for building your own MCP server with custom plugins.
 
-### Local Development Setup
+### Adding or Removing Plugins
 
-```bash
-pip install -r requirements-dev.txt -e . --no-deps
+Edit the `Dockerfile` to add or remove provider images:
+
+```dockerfile
+FROM ghcr.io/ai-contained/ai-contained-base:latest
+
+COPY --link --from=ghcr.io/ai-contained/ai-contained-provider-template:latest / /
+# COPY --link --from=ghcr.io/ai-contained/ai-contained-provider-shell:latest / /
+
+RUN ["/usr/local/bin/ai-contained-finalize"]
+
+USER 65533:65533
 ```
 
-> Assumes the following layout:
-> ```
-> ../core-mcp/
-> ../ai-contained-provider-template/
-> ../ai-contained-template/   ← you are here
-> ```
-
-### Running the Server Directly
+### Building Locally
 
 ```bash
-python3 server.py
-```
-
-Or via FastMCP CLI:
-
-```bash
-fastmcp run server.py --transport http --host 0.0.0.0 --port 8080 --no-banner
+docker build -t my-ai-contained .
 ```
 
 ### Customizing
 
-- Add/remove plugins in `pyproject.toml`
-- Update MCP server URL in `docker-compose.yaml` if you rename the service
+- Add/remove providers via `COPY --link --from=...` lines in `Dockerfile`
+- Update the MCP server URL in `docker-compose.yaml` if you rename the service

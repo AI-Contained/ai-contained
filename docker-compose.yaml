@@ -2,6 +2,7 @@ services:
   ai-contained-shell:
     build:
       context: .
+      pull: true
     user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
     environment:
       ALLOWED_PROVIDERS: "shell"
@@ -15,6 +16,7 @@ services:
   ai-contained:
     build:
       context: .
+      pull: true
     user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
     environment:
       DENIED_PROVIDERS: "shell"
