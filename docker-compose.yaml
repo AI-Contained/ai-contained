@@ -3,17 +3,46 @@ services:
     build:
       context: .
       pull: true
+    # Explicit hostname so reverse-DNS from peers returns "ai-contained"
+    # (otherwise docker uses the container ID hex, which changes every run
+    # and breaks any peer that matches on hostname — e.g. TRUST_CLIENTS).
+    hostname: ai-contained
     environment:
       # An experimental feature that allows all "read-only" commands and filesystem operations to
       # occur without prompting the user.
       #
       # This should be safe, as mutable commands and writes to the filesystem _WILL_ be prompted
       - EXPERIMENTAL_APPROVE_ALL_READS=yes
+      # Catchall: trust the `secrets` container for any credential role.
+      # TODO:  This is buggy and needs to be fixed.
+      - TRUST_SERVERS=*=http://secrets:8080,aws=http://secrets:8080
+        #- TRUST_SERVERS=http://secrets:8080
     user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
     volumes:
       - "${WORKSPACE:?WORKSPACE not set - run via ai-contained.sh}:/ai_contained"
     tmpfs:
       - /tmp:size=512m,mode=1777
+    networks:
+      - ai-contained
+    depends_on:
+      secrets:
+        condition: service_healthy
+
+  secrets:
+    build:
+      context: .
+      dockerfile: Dockerfile.secrets
+      pull: true
+    hostname: secrets
+    environment:
+      # Catchall: accept requests for any role from the `ai-contained` container.
+      - TRUST_CLIENTS=ai-contained
+      - AWS_ACCOUNTS_CONFIG_PATH=/secrets/aws-secrets/accounts.json5
+    user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
+    volumes:
+      - "${AI_CONTAINED_SECRETS_HOME:?AI_CONTAINED_SECRETS_HOME not set - run via ai-contained.sh}:/secrets"
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     networks:
       - ai-contained
 
@@ -40,7 +69,7 @@ services:
       - "/usr/local/bin/shim_claude"
       - "--strict-mcp-config"
       - "--mcp-config"
-      - '{"mcpServers":{"ai-contained":{"type":"http","url":"http://ai-contained:8080/mcp"}}}'
+      - '{"mcpServers":{"ai-contained":{"type":"http","url":"http://ai-contained:8080/mcp"},"secrets":{"type":"http","url":"http://secrets:8080/mcp"}}}'
 
 networks:
   ai-contained:
