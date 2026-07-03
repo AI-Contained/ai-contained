@@ -1,6 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
+# Resolve the real script location through symlinks so docker-compose.yaml is
+# found relative to the actual script, not wherever the (possibly-remote)
+# symlink lives. BASH_SOURCE[0] handles PATH lookup (e.g. when invoked as bare
+# `claude`); realpath follows the symlink chain (portable on Linux and macOS
+# 12.3+).
+readonly SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly SCRIPT_DIR="$(dirname "$SCRIPT")"
+
+# When invoked as `claude` (typically via symlink), behave as a drop-in
+# replacement: workspace defaults to cwd, no first-arg requirement, all args
+# pass through to claude.
+CLAUDE_COMPATIBILITY=""
+[[ "$(basename "$0")" == "claude" ]] && CLAUDE_COMPATIBILITY=1
+readonly CLAUDE_COMPATIBILITY
+
 # try to detect which docker-compose variant to use
 if [[ -z "${COMPOSE_CMD:-}" ]]; then
     if command -v podman &>/dev/null && podman compose version &>/dev/null 2>&1; then
@@ -16,7 +31,7 @@ fi
 readonly COMPOSE_CMD
 
 usage() {
-    echo "Usage: $(basename "$0") <path>"
+    echo "Usage: $0 <path>"
     echo "  path  Path to mount as /workspace (use '.' for current directory)"
     echo ""
     if [[ -n "${COMPOSE_CMD:-}" ]]; then
@@ -28,16 +43,29 @@ usage() {
     exit 1
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
+if [[ -n "${CLAUDE_COMPATIBILITY}" ]]; then
+    # claude compatibility mode: workspace = cwd, every arg passes through to claude.
+    if [[ -z "${COMPOSE_CMD:-}" ]]; then
+        usage
+    fi
+    readonly WORKSPACE="$PWD"
+else
+    # ai-contained mode: first positional arg is the workspace, remainder pass to claude.
+    if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+        usage
+    fi
+    if [[ $# -lt 1 || -z "${COMPOSE_CMD:-}" ]]; then
+        usage
+    fi
+    readonly WORKSPACE="$(realpath "$1" 2>/dev/null)"
+    if [[ ! -d "$WORKSPACE" ]]; then
+        echo "Error: '$1' is not a directory" >&2
+        usage
+    fi
+    shift
 fi
 
-if [[ $# -lt 1 || -z "${COMPOSE_CMD:-}" ]]; then
-    usage
-fi
-
-readonly WORKSPACE="$(realpath "$1")"
-readonly COMPOSE_FILE="$(dirname "$0")/../docker-compose.yaml"
+readonly COMPOSE_FILE="$SCRIPT_DIR/../docker-compose.yaml"
 # Docker compose project names can only contain lowercase alphanumeric characters, hyphens, and underscores
 readonly PROJECT="$(basename "${WORKSPACE}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '-' | sed 's/^-//;s/-$//')-$$"
 readonly USER_ID="$(id -u)"
@@ -69,4 +97,4 @@ cleanup() {
 }
 trap cleanup EXIT
 
-${COMPOSE_CMD} -f "${COMPOSE_FILE}" -p "${PROJECT}" run --rm -it agent "${@:2}"
+${COMPOSE_CMD} -f "${COMPOSE_FILE}" -p "${PROJECT}" run --rm -it agent "$@"
