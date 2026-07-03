@@ -81,8 +81,16 @@ fi
 
 export WORKSPACE USER_ID GROUP_ID AI_CONTAINED_SECRETS_HOME
 
+# In claude-compat mode, hide docker compose's own orchestration chatter
+# (`[+] Running ...` progress lines). Container stdout/stderr still passes
+# through unaffected; errors still surface.
+COMPOSE_ARGS=(-f "${COMPOSE_FILE}" -p "${PROJECT}")
+if [[ -n "${CLAUDE_COMPATIBILITY}" ]]; then
+    COMPOSE_ARGS+=(--progress=quiet)
+fi
+
 cleanup() {
-    local -a cmd=(${COMPOSE_CMD} -f "${COMPOSE_FILE}" -p "${PROJECT}" down)
+    local -a cmd=(${COMPOSE_CMD} "${COMPOSE_ARGS[@]}" down)
     if [[ -n "${DISABLE_CLEANUP:-}" ]]; then
         echo "DISABLE_CLEANUP set; skipping teardown. To clean up manually, run:" >&2
         # docker-compose.yaml uses ${VAR:?...} required-var syntax, so even `down`
@@ -97,4 +105,4 @@ cleanup() {
 }
 trap cleanup EXIT
 
-${COMPOSE_CMD} -f "${COMPOSE_FILE}" -p "${PROJECT}" run --rm -it agent "$@"
+${COMPOSE_CMD} "${COMPOSE_ARGS[@]}" run --rm -it agent "$@"
