@@ -169,6 +169,20 @@ When you're done, simply quit claude. Docker Compose shuts everything down clean
 
 ---
 
+## Drop-in `claude` Replacement (Experimental)
+
+If you'd like `ai-contained.sh` to stand in for the `claude` CLI directly, you can symlink it as `claude` somewhere on your `PATH`:
+
+```bash
+ln -s /path/to/ai-contained/bin/ai-contained.sh ~/.local/bin/claude
+```
+
+When invoked as `claude`, the script switches into compatibility mode: the workspace defaults to the current directory (no first-arg path required), and every argument is passed straight through to the underlying `claude` CLI. This lets tools and muscle memory that already know about `claude` work unchanged, while still getting the container isolation.
+
+This feature is **experimental** — feedback welcomed. One known rough edge: commands like `claude --help` take noticeably longer than they do with the real CLI, because Docker Compose still spins up all the containers, runs `--help` inside the agent, and tears everything back down.
+
+---
+
 ## First Launch
 
 On first launch, Claude will walk you through login. Sign in with your Claude.ai account (Pro or Max) or enter your API key when prompted. Your credentials are stored in `~/.config/ai-contained/ai-contained-agent-claude/` and reused automatically in future sessions.
