@@ -57,6 +57,8 @@ services:
       - no-new-privileges:true
     volumes:
       - "${HOME:?HOME not set}/.config/ai-contained/agent-claude:/config"
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     networks:
       - ai-contained
     depends_on:

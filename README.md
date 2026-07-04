@@ -80,7 +80,7 @@ This is a deliberate design choice. Trust shouldn't be blind. If you're handing 
 
 ## What's Included
 
-AI-Contained ships with two tools, pre-configured with appropriate isolation:
+AI-Contained ships with a growing catalog of providers. Two are **enabled by default** in `docker-compose.yaml`, pre-configured with appropriate isolation:
 
 | Provider | What it does | Docker permissions |
 |------|-------------|-------------------|
@@ -90,6 +90,17 @@ AI-Contained ships with two tools, pre-configured with appropriate isolation:
 The separation is intentional. The shell provider can inspect, search, and run commands against your code — but it cannot modify anything. If the AI wants to write a file, it **must** use the filesystem provider, which has its own approval step and its own container.
 
 This architecture means that even a compromised or poorly configured shell tool has a hard ceiling on the damage it can cause.
+
+### Opt-in providers
+
+Additional providers can be enabled by adding a `COPY --from=...` line to your `Dockerfile` alongside the defaults:
+
+| Provider | What it does | Isolation |
+|------|-------------|-------------------|
+| [aws-cli](https://github.com/AI-Contained/ai-contained-provider-aws-cli) | Runs AWS CLI commands with a hard read/write split — `aws_read` (allowlist of read-only verbs, auto-classified) and `aws_write` (requires explicit confirmation) | Stateless; no host access. Short-lived credentials fetched per-request over an isolated trust channel |
+| [aws-secrets](https://github.com/AI-Contained/ai-contained-provider-aws-secrets) | Manages AWS auth lifecycle (SSO login, credential cache) and dispenses short-lived credentials to authorized consumers like `aws-cli` | Runs in its own container; credentials never traverse the agent |
+
+These are opt-in because most projects don't need cloud access, and the credential-handling providers (`aws-secrets` and future siblings) rely on a separate trust channel that only makes sense when a consumer like `aws-cli` is present.
 
 ---
 
@@ -116,7 +127,11 @@ The AI agent is also stripped of all of Claude Code's built-in tools (file readi
 
 ## Prerequisites
 
-- **Docker** with the Compose plugin — verify with `docker compose version`
+- **A container runtime with Compose support** — either:
+  - **Docker** with the Compose plugin — verify with `docker compose version`
+  - **Podman** with either `podman compose` or `podman-compose` — verify with `podman compose version` or `podman-compose version`
+
+  `ai-contained.sh` autodetects whichever is installed; if you have both and want to pin one, set `COMPOSE_CMD` (see [Configuration](#configuration)).
 - **A Claude account** — either:
   - A [Claude Pro or Max subscription](https://claude.ai) — running Claude Code locally is safe and does not violate Anthropic's Terms of Service
   - Or an [Anthropic API key](https://console.anthropic.com)
@@ -169,6 +184,20 @@ When you're done, simply quit claude. Docker Compose shuts everything down clean
 
 ---
 
+## Drop-in `claude` Replacement (Experimental)
+
+If you'd like `ai-contained.sh` to stand in for the `claude` CLI directly, you can symlink it as `claude` somewhere on your `PATH`:
+
+```bash
+ln -s /path/to/ai-contained/bin/ai-contained.sh ~/.local/bin/claude
+```
+
+When invoked as `claude`, the script switches into compatibility mode: the workspace defaults to the current directory (no first-arg path required), and every argument is passed straight through to the underlying `claude` CLI. This lets tools and muscle memory that already know about `claude` work unchanged, while still getting the container isolation.
+
+This feature is **experimental** — feedback welcomed. One known rough edge: commands like `claude --help` take noticeably longer than they do with the real CLI, because Docker Compose still spins up all the containers, runs `--help` inside the agent, and tears everything back down.
+
+---
+
 ## First Launch
 
 On first launch, Claude will walk you through login. Sign in with your Claude.ai account (Pro or Max) or enter your API key when prompted. Your credentials are stored in `~/.config/ai-contained/ai-contained-agent-claude/` and reused automatically in future sessions.
@@ -189,6 +218,25 @@ On first launch, Claude will walk you through login. Sign in with your Claude.ai
 - Make outbound network requests on its own
 - Install software or modify system configuration
 - Do anything — at all — without explicitly asking you first
+
+---
+
+## Configuration
+
+A handful of environment variables tweak `ai-contained.sh`'s behavior. None are required for normal use — the defaults are chosen to Just Work.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `COMPOSE_CMD` | _autodetected_ | Pins the compose tool (e.g. `docker compose`, `podman compose`, `podman-compose`). Useful when you have both Docker and Podman installed and want to force one. |
+| `AI_CONTAINED_SECRETS_HOME` | `~/.config/ai-contained-secrets` | Where per-session secrets live on your host. Created with `0700` on first use. Point this elsewhere if you keep credentials in a non-standard location. |
+| `DISABLE_CLEANUP` | _unset_ | If set to anything non-empty, `ai-contained.sh` skips the `compose down` teardown on exit and instead prints the exact command to run it yourself. Handy for post-mortem debugging of container state. |
+| `EXPERIMENTAL_APPROVE_ALL_READS` | `yes` | Set in `docker-compose.yaml` (not your shell). See below. |
+
+### `EXPERIMENTAL_APPROVE_ALL_READS`
+
+As mentioned in the [MVP warnings](#-current-state-minimum-viable-product), every tool request currently requires per-request approval. As a stopgap, `EXPERIMENTAL_APPROVE_ALL_READS=yes` is enabled by default in `docker-compose.yaml`: read-only operations (reading files, non-mutating shell commands) run without prompting; writes and mutating commands still require explicit approval. This dramatically cuts the click-fatigue while keeping the important gate — the write path — intact.
+
+It's _experimental_. If it feels wrong for your workflow, flip it to `no` in `docker-compose.yaml` and every read will prompt again.
 
 ---
 
