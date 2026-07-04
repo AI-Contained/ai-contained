@@ -3,6 +3,10 @@ services:
     build:
       context: .
       pull: true
+    # Explicit hostname so reverse-DNS from peers returns "ai-contained"
+    # (otherwise docker uses the container ID hex, which changes every run
+    # and breaks any peer that matches on hostname — e.g. TRUST_CLIENTS).
+    hostname: ai-contained
     environment:
       # An experimental feature that allows all "read-only" commands and filesystem operations to
       # occur without prompting the user.
@@ -28,6 +32,8 @@ services:
       - no-new-privileges:true
     volumes:
       - "${HOME:?HOME not set}/.config/ai-contained/agent-claude:/config"
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     networks:
       - ai-contained
     depends_on:
