@@ -80,7 +80,7 @@ This is a deliberate design choice. Trust shouldn't be blind. If you're handing 
 
 ## What's Included
 
-AI-Contained ships with two tools, pre-configured with appropriate isolation:
+AI-Contained ships with a growing catalog of providers. Two are **enabled by default** in `docker-compose.yaml`, pre-configured with appropriate isolation:
 
 | Provider | What it does | Docker permissions |
 |------|-------------|-------------------|
@@ -90,6 +90,17 @@ AI-Contained ships with two tools, pre-configured with appropriate isolation:
 The separation is intentional. The shell provider can inspect, search, and run commands against your code — but it cannot modify anything. If the AI wants to write a file, it **must** use the filesystem provider, which has its own approval step and its own container.
 
 This architecture means that even a compromised or poorly configured shell tool has a hard ceiling on the damage it can cause.
+
+### Opt-in providers
+
+Additional providers can be enabled by adding a `COPY --from=...` line to your `Dockerfile` alongside the defaults:
+
+| Provider | What it does | Isolation |
+|------|-------------|-------------------|
+| [aws-cli](https://github.com/AI-Contained/ai-contained-provider-aws-cli) | Runs AWS CLI commands with a hard read/write split — `aws_read` (allowlist of read-only verbs, auto-classified) and `aws_write` (requires explicit confirmation) | Stateless; no host access. Short-lived credentials fetched per-request over an isolated trust channel |
+| [aws-secrets](https://github.com/AI-Contained/ai-contained-provider-aws-secrets) | Manages AWS auth lifecycle (SSO login, credential cache) and dispenses short-lived credentials to authorized consumers like `aws-cli` | Runs in its own container; credentials never traverse the agent |
+
+These are opt-in because most projects don't need cloud access, and the credential-handling providers (`aws-secrets` and future siblings) rely on a separate trust channel that only makes sense when a consumer like `aws-cli` is present.
 
 ---
 
