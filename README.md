@@ -116,7 +116,11 @@ The AI agent is also stripped of all of Claude Code's built-in tools (file readi
 
 ## Prerequisites
 
-- **Docker** with the Compose plugin — verify with `docker compose version`
+- **A container runtime with Compose support** — either:
+  - **Docker** with the Compose plugin — verify with `docker compose version`
+  - **Podman** with either `podman compose` or `podman-compose` — verify with `podman compose version` or `podman-compose version`
+
+  `ai-contained.sh` autodetects whichever is installed; if you have both and want to pin one, set `COMPOSE_CMD` (see [Configuration](#configuration)).
 - **A Claude account** — either:
   - A [Claude Pro or Max subscription](https://claude.ai) — running Claude Code locally is safe and does not violate Anthropic's Terms of Service
   - Or an [Anthropic API key](https://console.anthropic.com)
@@ -203,6 +207,25 @@ On first launch, Claude will walk you through login. Sign in with your Claude.ai
 - Make outbound network requests on its own
 - Install software or modify system configuration
 - Do anything — at all — without explicitly asking you first
+
+---
+
+## Configuration
+
+A handful of environment variables tweak `ai-contained.sh`'s behavior. None are required for normal use — the defaults are chosen to Just Work.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `COMPOSE_CMD` | _autodetected_ | Pins the compose tool (e.g. `docker compose`, `podman compose`, `podman-compose`). Useful when you have both Docker and Podman installed and want to force one. |
+| `AI_CONTAINED_SECRETS_HOME` | `~/.config/ai-contained-secrets` | Where per-session secrets live on your host. Created with `0700` on first use. Point this elsewhere if you keep credentials in a non-standard location. |
+| `DISABLE_CLEANUP` | _unset_ | If set to anything non-empty, `ai-contained.sh` skips the `compose down` teardown on exit and instead prints the exact command to run it yourself. Handy for post-mortem debugging of container state. |
+| `EXPERIMENTAL_APPROVE_ALL_READS` | `yes` | Set in `docker-compose.yaml` (not your shell). See below. |
+
+### `EXPERIMENTAL_APPROVE_ALL_READS`
+
+As mentioned in the [MVP warnings](#-current-state-minimum-viable-product), every tool request currently requires per-request approval. As a stopgap, `EXPERIMENTAL_APPROVE_ALL_READS=yes` is enabled by default in `docker-compose.yaml`: read-only operations (reading files, non-mutating shell commands) run without prompting; writes and mutating commands still require explicit approval. This dramatically cuts the click-fatigue while keeping the important gate — the write path — intact.
+
+It's _experimental_. If it feels wrong for your workflow, flip it to `no` in `docker-compose.yaml` and every read will prompt again.
 
 ---
 
