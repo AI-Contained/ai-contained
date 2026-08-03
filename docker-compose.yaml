@@ -3,6 +3,9 @@ services:
     build:
       context: .
       pull: true
+    # Explicit hostname for stable, predictable naming in logs and diagnostics
+    # (otherwise docker uses the container ID hex, which changes every run).
+    hostname: ai-contained
     user: "${USER_ID:?USER_ID not set - run via ai-contained.sh}:${GROUP_ID:?GROUP_ID not set - run via ai-contained.sh}"
     volumes:
       - "${WORKSPACE:?WORKSPACE not set - run via ai-contained.sh}:/ai_contained"
@@ -20,6 +23,8 @@ services:
       - no-new-privileges:true
     volumes:
       - "${HOME:?HOME not set}/.config/ai-contained/agent-claude:/config"
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     networks:
       - ai-contained
     depends_on:
